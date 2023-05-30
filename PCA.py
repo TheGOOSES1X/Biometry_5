@@ -25,6 +25,21 @@ def load_images(directory):
                 labels.append(label)
     return images, labels
 
+# Функция для разбиения изображений на тестовые и распознаваемые изображения
+def split_images(images, labels, test_ratio):
+    test_images = []
+    test_labels = []
+    recognized_images = []
+    recognized_labels = []
+    for i in range(len(images)):
+        if i % 10 < test_ratio:
+            test_images.append(images[i])
+            test_labels.append(labels[i])
+        else:
+            recognized_images.append(images[i])
+            recognized_labels.append(labels[i])
+    return test_images, test_labels, recognized_images, recognized_labels
+
 # Функция для выполнения метода главных компонент (PCA) на базе данных лиц
 def perform_pca(images, labels, n_components):
     X = np.array(images)
@@ -65,7 +80,7 @@ def choose_random_test_image():
     test_image = test_images[index]
     test_label = test_labels[index]
 
-    recognized_image, recognized_label = recognize_face(test_image, pca, X_pca, images, labels, test_label)
+    recognized_image, recognized_label = recognize_face(test_image, pca, X_pca, recognized_images, recognized_labels, test_label)
     show_results(test_image, recognized_image, recognized_label)
 
     # Удаление использованного тестового изображения
@@ -111,7 +126,7 @@ def choose_image():
         test_image = np.array(image, dtype='uint8').flatten()
         test_image_pca = pca.transform([test_image])
 
-        recognized_image, recognized_label = perform_recognition_for_choosen_image(test_image_pca, images, labels, test_label)
+        recognized_image, recognized_label = perform_recognition_for_choosen_image(test_image_pca, recognized_images, recognized_labels, test_label)
         show_results(image, recognized_image, recognized_label)
 
         accuracy.append(1 if recognized_label == test_label else 0)
@@ -141,17 +156,13 @@ root.title('PCA распознавание лиц')
 image_directory = 'Faces'
 images, labels = load_images(image_directory)
 
-# Выбор случайных изображений для тестирования
-test_images = []
-test_labels = []
-for i in range(51):
-    index = random.randint(0, len(images) - 1)
-    test_images.append(images.pop(index))
-    test_labels.append(labels.pop(index))
+# Разбиение изображений на тестовые и распознаваемые изображения
+test_ratio = int(input("Введите число тестовых изображений (от 1 до 9): "))
+test_images, test_labels, recognized_images, recognized_labels = split_images(images, labels, test_ratio)
 
 # Выполнение метода главных компонент (PCA) на базе данных лиц
 n_components_pca = 40  # Количество главных компонент для PCA
-pca, X_pca = perform_pca(images, labels, n_components_pca)
+pca, X_pca = perform_pca(recognized_images, recognized_labels, n_components_pca)
 
 # Создание фигуры для отображения изображений и графика точности
 fig = plt.figure(figsize=(12, 4))  # Увеличение ширины фигуры
@@ -171,7 +182,7 @@ manual_accuracy = []
 # Функция для запуска распознавания с заданными паузами
 def start_recognition():
     random_button.config(state='disabled')
-    for i in range(51):
+    for i in range(400):
         root.after(i * 500, choose_random_test_image)
     total_accuracy = accuracy + manual_accuracy
     average_accuracy = np.mean(total_accuracy) * 100
