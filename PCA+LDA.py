@@ -26,6 +26,21 @@ def load_images(directory):
                 labels.append(label)
     return images, labels
 
+# Функция для разделения изображений на тестовые и распознаваемые изображения
+def split_images(images, labels, test_ratio):
+    test_images = []
+    test_labels = []
+    recognized_images = []
+    recognized_labels = []
+    for i in range(len(images)):
+        if i % 10 < test_ratio:
+            test_images.append(images[i])
+            test_labels.append(labels[i])
+        else:
+            recognized_images.append(images[i])
+            recognized_labels.append(labels[i])
+    return test_images, test_labels, recognized_images, recognized_labels
+
 # Функция для выполнения методов главных компонент (PCA) и линейного дискриминантного анализа (LDA) на базе данных лиц
 def perform_pca_lda(images, labels, n_components_pca, n_components_lda):
     X = np.array(images)
@@ -70,7 +85,7 @@ def choose_random_test_image():
     test_image = test_images[index]
     test_label = test_labels[index]
 
-    recognized_image, recognized_label = recognize_face(test_image, pca, lda, X_pca, X_lda, images, labels, test_label)
+    recognized_image, recognized_label = recognize_face(test_image, pca, lda, X_pca, X_lda, recognized_images, recognized_labels, test_label)
     show_results(test_image, recognized_image, recognized_label)
 
     # Удаление использованного тестового изображения
@@ -91,7 +106,7 @@ def update_accuracy_plot():
 
     # Вычисление среднего значения точности в процентах
     average_accuracy = calculate_average_accuracy()
-    accuracy_plot.text(0, 1.1, f'Средняя точность:: {average_accuracy:.2f}%', transform=accuracy_plot.transAxes, fontsize=12)
+    accuracy_plot.text(0, 1.1, f'Средняя точность: {average_accuracy:.2f}%', transform=accuracy_plot.transAxes, fontsize=12)
 
     fig_canvas.draw()
 
@@ -125,18 +140,14 @@ root.title('PCA+LDA распознавание лиц')
 image_directory = 'Faces'
 images, labels = load_images(image_directory)
 
-# Выбор случайных изображений для тестирования
-test_images = []
-test_labels = []
-for i in range(51):
-    index = random.randint(0, len(images) - 1)
-    test_images.append(images.pop(index))
-    test_labels.append(labels.pop(index))
+# Получение от пользователя количества тестовых изображений
+test_ratio = int(input('Введите количество тестовых изображений (от 1 до 8): '))
+test_images, test_labels, recognized_images, recognized_labels = split_images(images, labels, test_ratio)
 
 # Выполнение методов главных компонент (PCA) и линейного дискриминантного анализа (LDA) на базе данных лиц
 n_components_pca = 40  # Количество главных компонент для PCA
 n_components_lda = 39  # Количество главных компонент для LDA
-pca, lda, X_pca, X_lda = perform_pca_lda(images, labels, n_components_pca, n_components_lda)
+pca, lda, X_pca, X_lda = perform_pca_lda(recognized_images, recognized_labels, n_components_pca, n_components_lda)
 
 # Создание фигуры для отображения изображений и графика точности
 fig = plt.figure(figsize=(12, 4))  # Увеличение ширины фигуры
@@ -152,7 +163,6 @@ fig_canvas.get_tk_widget().pack()
 # Создание переменной accuracy для записи точности распознавания
 accuracy = []
 
-
 # Функция для выбора изображения из проводника
 def choose_image():
     file_path = filedialog.askopenfilename(filetypes=[("Image Files", "*.pgm")])
@@ -163,11 +173,10 @@ def choose_image():
         test_image_pca = pca.transform([test_image])
         test_image_lda = lda.transform(test_image_pca)
 
-        recognized_image, recognized_label = perform_recognition_for_choosen_image(test_image_lda, X_lda, images, labels, -1)
+        recognized_image, recognized_label = perform_recognition_for_choosen_image(test_image_lda, X_lda, recognized_images, recognized_labels, -1)
         show_results(image, recognized_image, recognized_label)
         accuracy.append(1 if recognized_label == test_label else 0)
         update_accuracy_plot()
-
 
 # Функция для распознавания лица на основе методов PCA и LDA для выбранного изображения (24/8 - демострация повышения точности)
 def perform_recognition_for_choosen_image(test_image_lda, X_lda, images, labels, test_label):
@@ -187,7 +196,7 @@ def perform_recognition_for_choosen_image(test_image_lda, X_lda, images, labels,
 # Функция для запуска распознавания с заданными паузами
 def start_recognition():
     random_button.config(state='disabled')
-    for i in range(51):
+    for i in range(len(test_images)):
         root.after(i * 500, choose_random_test_image)
 
 # Создание кнопки для выбора случайного изображения
@@ -202,5 +211,5 @@ choose_image_button.pack(pady=10)
 start_button = tk.Button(root, text='Автоматическое случайное распознавание', command=start_recognition)
 start_button.pack(pady=10)
 
-# Запуск главного цикла событий Tkinter
+# Запуск главного цикла Tkinter
 root.mainloop()
